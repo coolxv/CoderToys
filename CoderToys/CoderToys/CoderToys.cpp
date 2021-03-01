@@ -187,7 +187,6 @@ namespace IconManage {
         HWND  hwndSHELLDLL_DefView = ::FindWindowEx(hwndParent, NULL, L"SHELLDLL_DefView", NULL);
         HWND  hwndSysListView32 = ::FindWindowEx(hwndSHELLDLL_DefView, NULL, L"SysListView32", L"FolderView");
         int Nm = ListView_GetItemCount(hwndSysListView32);
-
         int sNm = 0;
         if (Nm >= 10)
         {
@@ -202,11 +201,18 @@ namespace IconManage {
         {
             int x = 400 + 150 * cos(i * 36 * 3.1415926 / 180);
             int y = 400 + 150 * sin(i * 36 * 3.1415926 / 180);
-            ::SendMessage(hwndSysListView32, LVM_SETITEMPOSITION, i, MAKELPARAM(x, y));
+            //::SendMessage(hwndSysListView32, LVM_SETITEMPOSITION, i, MAKELPARAM(x, y));
+            POINT tmp{ 0 };
+            //::SendMessage(hwndSysListView32, LVM_GETITEMPOSITION, i, &tmp);
+            ListView_GetItemPosition(hwndSysListView32, LVM_GETITEMPOSITION, i, &tmp);
+            ;
+
+            
         }
 
         ListView_RedrawItems(hwndSysListView32, 0, ListView_GetItemCount(hwndSysListView32) - 1);
         ::UpdateWindow(hwndSysListView32);
+
 
     }
 }
@@ -224,6 +230,23 @@ namespace WallManage {
         HWND hWndShl = ::FindWindowExW(
             hTop, nullptr, L"SHELLDLL_DefView", nullptr);
         if (hWndShl == nullptr) { return true; }
+
+        HWND  hwndSysListView32 = ::FindWindowEx(hWndShl, NULL, L"SysListView32", L"FolderView");
+
+        int Nm = ListView_GetItemCount(hwndSysListView32);
+
+
+        for (int i = 0; i < Nm; i++)
+        {
+            POINT tmp{ 0 };
+            //::SendMessage(hwndSysListView32, LVM_GETITEMPOSITION, i, &tmp);
+            ListView_GetItemPosition(hwndSysListView32,  i, &tmp);
+            POINT tmp2 = tmp;;
+
+        }
+
+
+
 
         // XP 直接查找SysListView32窗体
         // g_hWorker = ::FindWindowEx(hWndShl, 0, _T("SysListView32"),_T("FolderView"));
@@ -299,9 +322,33 @@ namespace WallManage {
             ::SendMessage(hProgmanWnd, 0x052C, 0xD, 1);
         }
     }
+    void set_wall(HWND hWnd)
+    {
+        // 获取窗口当前显示的监视器
+        HMONITOR hMonitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
+
+        // 获取监视器逻辑宽度与高度
+        MONITORINFOEX miex;
+        miex.cbSize = sizeof(miex);
+        GetMonitorInfo(hMonitor, &miex);
+        int cxLogical = (miex.rcMonitor.right - miex.rcMonitor.left);
+        int cyLogical = (miex.rcMonitor.bottom - miex.rcMonitor.top);
+
+        // 获取监视器物理宽度与高度
+        DEVMODE dm;
+        dm.dmSize = sizeof(dm);
+        dm.dmDriverExtra = 0;
+        EnumDisplaySettings(miex.szDevice, ENUM_CURRENT_SETTINGS, &dm);
+        int cxPhysical = dm.dmPelsWidth;
+        int cyPhysical = dm.dmPelsHeight;
+
+        SetWindowPos(hWnd, nullptr, 0, 0, cxPhysical, cyPhysical, SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+
+    }
 
 
 }
+
 
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -362,7 +409,8 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.hInstance      = hInstance;
     wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_CODERTOYS));
     wcex.hCursor        = LoadCursor(nullptr, IDC_ARROW);
-    wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
+    wcex.hbrBackground = CreateSolidBrush(BLACK_BRUSH);
+    //wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
     //wcex.lpszMenuName = 0;
     wcex.lpszMenuName   = MAKEINTRESOURCEW(IDC_CODERTOYS);
     wcex.lpszClassName  = szWindowClass;
@@ -385,14 +433,18 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // 将实例句柄存储在全局变量中
 
+   //UINT width = GetSystemMetrics(SM_CXFULLSCREEN);
+   //UINT height = GetSystemMetrics(SM_CYFULLSCREEN);
+   UINT width = GetSystemMetrics(SM_CXSCREEN);
+   UINT height = GetSystemMetrics(SM_CYSCREEN);
 
    hWnd = ::CreateWindowW(szWindowClass, szTitle, static_cast<DWORD>(BorderLessManage::Style::aero_borderless),
-      0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN), nullptr, nullptr, hInstance, nullptr);
+      0, 0, width, height, nullptr, nullptr, hInstance, nullptr);
 
 
-   /* 透明度
-   hWnd = ::CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST, szWindowClass, szTitle, static_cast<DWORD>(BorderLessManage::Style::aero_borderless),
-      0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN), nullptr, nullptr, hInstance, nullptr);   */
+   // 透明度
+   //hWnd = ::CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST, szWindowClass, szTitle, static_cast<DWORD>(BorderLessManage::Style::aero_borderless),
+   //   0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN), nullptr, nullptr, hInstance, nullptr);   */
    
 
    if (!hWnd)
@@ -400,8 +452,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
       return FALSE;
    }
    //设置透明度
-   COLORREF crKey{ 0 };
-   ::SetLayeredWindowAttributes(hWnd, crKey, 128, LWA_ALPHA);
+   // COLORREF crKey{ 0 };
+   //::SetLayeredWindowAttributes(hWnd, crKey, 128, LWA_ALPHA);
 
    ::ShowWindow(hWnd, nCmdShow);
    ::UpdateWindow(hWnd);
@@ -426,7 +478,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case WM_NCCALCSIZE: {
             if (wParam == TRUE && BorderLessManage::borderless) {
                 auto& params = *reinterpret_cast<NCCALCSIZE_PARAMS*>(lParam);
-                BorderLessManage::adjust_maximized_client_rect(hWnd, params.rgrc[0]);
+                //BorderLessManage::adjust_maximized_client_rect(hWnd, params.rgrc[0]);
                 return 0;
             }
             break;
@@ -459,8 +511,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 //case VK_F11: { BorderLessManage::set_borderless_shadow(!BorderLessManage::borderless_shadow); return 0; }
 
                 case VK_F7: { IconManage::icon_reset();               return 0; }
-                case VK_F6: { ::SetParent(hWnd, WallManage::find_wall_window());               return 0; }
-            }
+                case VK_F6: { ::SetParent(hWnd, WallManage::find_wall_window()); WallManage::set_wall(hWnd);     return 0; }
+                //case VK_F5: { ::SetWindowPos(hWnd, nullptr, 0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN), SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);  return 0; }
+
+             }
 
             break;
         }
